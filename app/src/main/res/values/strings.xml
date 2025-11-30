@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name" translatable="false">Personal Expense Management</string>
+
+    <!-- Google Sign-In -->
+    <string name="web_client_id" translatable="false">118934518545-gjb8738rkq6pv0tg9novh0k3vgon68hg.apps.googleusercontent.com</string>
+
+    <!-- Facebook Login -->
+    <string name="facebook_app_id">1500863971216354</string>
+    <string name="facebook_client_token">444210a1c388fae8644a89c49489738e</string>
+    <string name="fb_login_protocol_scheme">fb1500863971216354</string>
+
+</resources>

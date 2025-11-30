@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "118934518545",
+    "project_id": "quan-li-chi-tieu-f318a",
+    "storage_bucket": "quan-li-chi-tieu-f318a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118934518545:android:0bbd2f3c049ebf461f2ab0",
+        "android_client_info": {
+          "package_name": "com.example.personalexpensemanagementapplication"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "118934518545-3cno0v50bl6h29el7ufo0tshv56m3fdt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.personalexpensemanagementapplication",
+            "certificate_hash": "62d6ae9c45113bd1fadf64789aeac5bdc00186bd"
+          }
+        },
+        {
+          "client_id": "118934518545-gjb8738rkq6pv0tg9novh0k3vgon68hg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8DAR7KeEFN2WBuTeJcYFEXqID1FYr2kM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "118934518545-gjb8738rkq6pv0tg9novh0k3vgon68hg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
