@@ -35,7 +35,7 @@ fun LoginScreen(
     onGoogleLogin: () -> Unit,
     onFacebookLogin: () -> Unit,
     onRegisterClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit
+    onForgotPasswordClick: () -> Unit // Giữ nguyên, chỉ thay đổi nơi gọi
 ) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
@@ -67,7 +67,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Email Field (replaces username)
+            // Email Field
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -98,7 +98,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Forgot Password
+            // Forgot Password - Khi click sẽ gọi onForgotPasswordClick để điều hướng
             TextButton(
                 onClick = onForgotPasswordClick,
                 modifier = Modifier.align(Alignment.End)

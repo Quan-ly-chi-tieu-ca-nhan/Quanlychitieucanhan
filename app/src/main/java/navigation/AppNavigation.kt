@@ -1,7 +1,6 @@
 package navigation
 
 import android.app.Activity
-import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -38,7 +39,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.concurrent.CancellationException
 
 @Composable
 fun AppNavigation(
@@ -46,7 +46,8 @@ fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val state by loginViewModel.state.collectAsState()
+    val auth = FirebaseAuth.getInstance()
+    val loginState by loginViewModel.state.collectAsState()
 
     // --- GOOGLE SIGN-IN HANDLER ---
     val googleSignInClient = remember {
@@ -107,8 +108,8 @@ fun AppNavigation(
     )
 
     // --- NAVIGATION ---
-    LaunchedEffect(state.isSignInSuccessful) {
-        if (state.isSignInSuccessful) {
+    LaunchedEffect(loginState.isSignInSuccessful) {
+        if (loginState.isSignInSuccessful) {
             Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_LONG).show()
             navController.navigate("home") { popUpTo("login") { inclusive = true } }
             loginViewModel.resetState()
@@ -122,7 +123,7 @@ fun AppNavigation(
                 onGoogleLogin = { googleLauncher.launch(googleSignInClient.signInIntent) },
                 onFacebookLogin = { facebookLauncher.launch(listOf("email", "public_profile")) },
                 onRegisterClick = { navController.navigate("register") },
-                onForgotPasswordClick = { navController.navigate("forgot_password") } // Navigate to forgot password
+                onForgotPasswordClick = { navController.navigate("forgot_password") }
             )
         }
         composable("register") {
@@ -132,8 +133,30 @@ fun AppNavigation(
             )
         }
         composable("forgot_password") {
+            var isLoading by remember { mutableStateOf(false) }
+            var error by remember { mutableStateOf<String?>(null) }
+
             ForgotPasswordScreen(
-                onBackToLogin = { navController.popBackStack() } // Go back to login
+                onNavigateBack = { navController.popBackStack() },
+                onSendResetEmailClick = { email ->
+                    if (email.isNotBlank()) {
+                        isLoading = true
+                        auth.sendPasswordResetEmail(email)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    Toast.makeText(context, "Đã gửi email khôi phục, vui lòng kiểm tra hộp thư của bạn.", Toast.LENGTH_LONG).show()
+                                    navController.popBackStack()
+                                } else {
+                                    error = task.exception?.localizedMessage ?: "Gửi email thất bại."
+                                }
+                            }
+                    } else {
+                        error = "Vui lòng nhập địa chỉ email."
+                    }
+                },
+                isLoading = isLoading,
+                error = error
             )
         }
         composable("home") {

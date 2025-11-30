@@ -1,102 +1,85 @@
 package com.example.personalexpensemanagementapplication.ui.screen
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForgotPasswordScreen(
-    onBackToLogin: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSendResetEmailClick: (String) -> Unit, // Đổi tên callback cho rõ nghĩa
+    isLoading: Boolean,
+    error: String?
 ) {
-    val context = LocalContext.current
-    val auth = FirebaseAuth.getInstance()
-
     var email by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Quên Mật Khẩu") },
+                title = { Text("Quên mật khẩu") },
                 navigationIcon = {
-                    IconButton(onClick = onBackToLogin) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 }
             )
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(32.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("Nhập email của bạn để nhận liên kết đặt lại mật khẩu.")
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Text("Nhập email của bạn để nhận liên kết đặt lại mật khẩu.")
-            Spacer(modifier = Modifier.height(24.dp))
+                // Email Field
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Địa chỉ Email") }, // Đổi label
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = error != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), // Đổi keyboard type
+                    shape = RoundedCornerShape(12.dp)
+                )
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Địa chỉ Email") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else {
+                // Error message
+                if (error != null) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                // Send Reset Email Button
                 Button(
-                    onClick = {
-                        message = null
-                        error = null
-                        if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                            error = "Vui lòng nhập một địa chỉ email hợp lệ."
-                        } else {
-                            isLoading = true
-                            auth.sendPasswordResetEmail(email)
-                                .addOnCompleteListener { task ->
-                                    isLoading = false
-                                    if (task.isSuccessful) {
-                                        Toast.makeText(context, "Đã gửi email đặt lại mật khẩu!", Toast.LENGTH_LONG).show()
-                                        message = "Vui lòng kiểm tra hộp thư của bạn để tiếp tục."
-                                    } else {
-                                        error = task.exception?.localizedMessage ?: "Gửi email thất bại."
-                                    }
-                                }
-                        }
-                    },
+                    onClick = { onSendResetEmailClick(email) },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = !isLoading,
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Gửi", fontSize = 18.sp)
+                    Text("Gửi email khôi phục", fontSize = 18.sp) // Đổi text nút
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (message != null) {
-                Text(text = message!!, color = MaterialTheme.colorScheme.primary)
-            }
-            if (error != null) {
-                Text(text = error!!, color = MaterialTheme.colorScheme.error)
+             if (isLoading) {
+                CircularProgressIndicator()
             }
         }
     }
