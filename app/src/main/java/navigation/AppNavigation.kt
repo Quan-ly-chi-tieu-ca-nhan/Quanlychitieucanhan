@@ -8,9 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -30,7 +28,6 @@ import com.facebook.FacebookException
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
@@ -46,7 +43,6 @@ fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val auth = FirebaseAuth.getInstance()
     val loginState by loginViewModel.state.collectAsState()
 
     // --- GOOGLE SIGN-IN HANDLER ---
@@ -133,31 +129,7 @@ fun AppNavigation(
             )
         }
         composable("forgot_password") {
-            var isLoading by remember { mutableStateOf(false) }
-            var error by remember { mutableStateOf<String?>(null) }
-
-            ForgotPasswordScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSendResetEmailClick = { email ->
-                    if (email.isNotBlank()) {
-                        isLoading = true
-                        auth.sendPasswordResetEmail(email)
-                            .addOnCompleteListener { task ->
-                                isLoading = false
-                                if (task.isSuccessful) {
-                                    Toast.makeText(context, "Đã gửi email khôi phục, vui lòng kiểm tra hộp thư của bạn.", Toast.LENGTH_LONG).show()
-                                    navController.popBackStack()
-                                } else {
-                                    error = task.exception?.localizedMessage ?: "Gửi email thất bại."
-                                }
-                            }
-                    } else {
-                        error = "Vui lòng nhập địa chỉ email."
-                    }
-                },
-                isLoading = isLoading,
-                error = error
-            )
+            ForgotPasswordScreen(navController = navController)
         }
         composable("home") {
             HomeScreen(

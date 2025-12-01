@@ -60,7 +60,7 @@ fun LoginScreen(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_launcher_foreground), // Replace with your app logo
-                contentDescription = "App Logo",
+                contentDescription = "Logo Ứng dụng",
                 modifier = Modifier.size(120.dp),
                 contentScale = ContentScale.Fit
             )
@@ -71,7 +71,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text("Địa chỉ Email") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -155,11 +155,11 @@ fun LoginScreen(
                 horizontalArrangement = Arrangement.Center
             ) {
                 IconButton(onClick = onGoogleLogin) {
-                    Image(painter = painterResource(id = R.drawable.ic_google), contentDescription = "Google Login", modifier = Modifier.size(48.dp))
+                    Image(painter = painterResource(id = R.drawable.ic_google), contentDescription = "Đăng nhập bằng Google", modifier = Modifier.size(48.dp))
                 }
                 Spacer(modifier = Modifier.width(24.dp))
                 IconButton(onClick = onFacebookLogin) {
-                    Image(painter = painterResource(id = R.drawable.ic_facebook), contentDescription = "Facebook Login", modifier = Modifier.size(48.dp))
+                    Image(painter = painterResource(id = R.drawable.ic_facebook), contentDescription = "Đăng nhập bằng Facebook", modifier = Modifier.size(48.dp))
                 }
             }
 

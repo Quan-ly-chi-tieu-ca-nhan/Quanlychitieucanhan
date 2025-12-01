@@ -1,26 +1,53 @@
 package com.example.personalexpensemanagementapplication
 
-import android.content.pm.PackageInfo
+import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import com.example.personalexpensemanagementapplication.ui.theme.PersonalExpenseManagementApplicationTheme
+import com.google.firebase.messaging.FirebaseMessaging
 import navigation.AppNavigation
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 
 class MainActivity : ComponentActivity() {
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d(TAG, "Notification permission granted.")
+        } else {
+            Log.d(TAG, "Notification permission denied.")
+        }
+    }
+
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        askNotificationPermission()
+        getAndLogFcmToken()
 
         // --- BẮT ĐẦU ĐOẠN CODE LẤY KEY HASH ---
         try {
@@ -32,7 +59,6 @@ class MainActivity : ComponentActivity() {
                 packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
             }
 
-            // Lấy chữ ký một cách an toàn và tương thích
             val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 info.signingInfo?.apkContentsSigners
             } else {
@@ -40,7 +66,6 @@ class MainActivity : ComponentActivity() {
                 info.signatures
             }
 
-            // Lặp qua các chữ ký một cách an toàn (tránh lỗi null)
             signatures?.forEach { signature ->
                 val md = MessageDigest.getInstance("SHA")
                 md.update(signature.toByteArray())
@@ -63,5 +88,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun getAndLogFcmToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w(TAG, "Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+            val token = task.result
+            Log.d(TAG, "FCM Registration Token: $token")
+            Toast.makeText(baseContext, "FCM Token: $token", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
     }
 }
