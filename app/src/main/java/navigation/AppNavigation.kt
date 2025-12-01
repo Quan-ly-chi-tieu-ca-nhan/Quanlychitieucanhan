@@ -1,10 +1,12 @@
 package navigation
 
 import android.app.Activity
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,25 +84,40 @@ fun AppNavigation(
 
     // --- FACEBOOK LOGIN HANDLER ---
     val facebookCallbackManager = remember { CallbackManager.Factory.create() }
-    LoginManager.getInstance().registerCallback(facebookCallbackManager, object : FacebookCallback<LoginResult> {
-        override fun onSuccess(result: LoginResult) {
-            val credential = FacebookAuthProvider.getCredential(result.accessToken.token)
-            FirebaseAuth.getInstance().signInWithCredential(credential).addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val firebaseUser = task.result?.user
-                    val userData = firebaseUser?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) }
-                    loginViewModel.onSignInResult(SignInResult(data = userData, errorMessage = null))
-                } else {
-                    loginViewModel.onSignInResult(SignInResult(data = null, errorMessage = task.exception?.message))
+    DisposableEffect(Unit) {
+        val callback = object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                val credential = FacebookAuthProvider.getCredential(result.accessToken.token)
+                FirebaseAuth.getInstance().signInWithCredential(credential).addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val firebaseUser = task.result?.user
+                        val userData = firebaseUser?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) }
+                        loginViewModel.onSignInResult(SignInResult(data = userData, errorMessage = null))
+                    } else {
+                        loginViewModel.onSignInResult(SignInResult(data = null, errorMessage = task.exception?.message))
+                    }
                 }
             }
+
+            override fun onCancel() {
+                Log.w("AppNavigation", "Facebook login cancelled.")
+            }
+
+            override fun onError(error: FacebookException) {
+                Log.e("AppNavigation", "Facebook login error.", error)
+                loginViewModel.onSignInResult(SignInResult(data = null, errorMessage = error.localizedMessage))
+            }
         }
-        override fun onCancel() { /* ... */ }
-        override fun onError(error: FacebookException) { /* ... */ }
-    })
+        LoginManager.getInstance().registerCallback(facebookCallbackManager, callback)
+
+        onDispose {
+            LoginManager.getInstance().unregisterCallback(facebookCallbackManager)
+        }
+    }
+
     val facebookLauncher = rememberLauncherForActivityResult(
         contract = LoginManager.getInstance().createLogInActivityResultContract(facebookCallbackManager, null),
-        onResult = { /* Handled by callback */ }
+        onResult = { /* Handled by the callback manager */ }
     )
 
     // --- NAVIGATION ---
