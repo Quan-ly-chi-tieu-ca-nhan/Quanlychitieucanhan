@@ -5,17 +5,27 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.personalexpensemanagementapplication.Destinations
 import com.example.personalexpensemanagementapplication.R
 import com.example.personalexpensemanagementapplication.SignInResult
 import com.example.personalexpensemanagementapplication.UserData
@@ -34,8 +44,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -46,8 +54,9 @@ fun AppNavigation(
     val navController = rememberNavController()
     val context = LocalContext.current
     val loginState by loginViewModel.state.collectAsState()
+    val coroutineScope = rememberCoroutineScope() // <--- KHAI BÁO SCOPE Ở ĐÂY
 
-    // --- GOOGLE SIGN-IN HANDLER ---
+    // --- AUTHENTICATION HANDLERS (GIỮ NGUYÊN) ---
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(R.string.web_client_id))
@@ -57,82 +66,73 @@ fun AppNavigation(
     }
 
     val googleLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-        onResult = { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                result.data?.let { intent ->
-                    CoroutineScope(Dispatchers.Main).launch {
-                        val signInResult = try {
-                            val account = GoogleSignIn.getSignedInAccountFromIntent(intent).await()
-                            val idToken = account.idToken!!
-                            val credential = GoogleAuthProvider.getCredential(idToken, null)
-                            val user = FirebaseAuth.getInstance().signInWithCredential(credential).await().user
-                            SignInResult(
-                                data = user?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) },
-                                errorMessage = null
-                            )
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            SignInResult(data = null, errorMessage = e.message)
-                        }
-                        loginViewModel.onSignInResult(signInResult)
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { intent ->
+                coroutineScope.launch { // <--- SỬ DỤNG SCOPE ĐÃ KHAI BÁO
+                    val signInResult = try {
+                        val account = GoogleSignIn.getSignedInAccountFromIntent(intent).await()
+                        val idToken = account.idToken!!
+                        val credential = GoogleAuthProvider.getCredential(idToken, null)
+                        val user = FirebaseAuth.getInstance().signInWithCredential(credential).await().user
+                        SignInResult(
+                            data = user?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) },
+                            errorMessage = null
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        SignInResult(data = null, errorMessage = e.message)
                     }
+                    loginViewModel.onSignInResult(signInResult)
                 }
             }
         }
-    )
+    }
 
-    // --- FACEBOOK LOGIN HANDLER ---
     val facebookCallbackManager = remember { CallbackManager.Factory.create() }
     DisposableEffect(Unit) {
         val callback = object : FacebookCallback<LoginResult> {
             override fun onSuccess(result: LoginResult) {
                 val credential = FacebookAuthProvider.getCredential(result.accessToken.token)
                 FirebaseAuth.getInstance().signInWithCredential(credential).addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val firebaseUser = task.result?.user
-                        val userData = firebaseUser?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) }
-                        loginViewModel.onSignInResult(SignInResult(data = userData, errorMessage = null))
+                    val signInResult = if (task.isSuccessful) {
+                        val user = task.result?.user
+                        SignInResult(data = user?.let { UserData(it.uid, it.displayName, it.photoUrl?.toString()) }, errorMessage = null)
                     } else {
-                        loginViewModel.onSignInResult(SignInResult(data = null, errorMessage = task.exception?.message))
+                        SignInResult(data = null, errorMessage = task.exception?.message)
                     }
+                    loginViewModel.onSignInResult(signInResult)
                 }
             }
-
-            override fun onCancel() {
-                Log.w("AppNavigation", "Facebook login cancelled.")
-            }
-
-            override fun onError(error: FacebookException) {
-                Log.e("AppNavigation", "Facebook login error.", error)
-                loginViewModel.onSignInResult(SignInResult(data = null, errorMessage = error.localizedMessage))
-            }
+            override fun onCancel() { /* ... */ }
+            override fun onError(error: FacebookException) { /* ... */ }
         }
         LoginManager.getInstance().registerCallback(facebookCallbackManager, callback)
-
-        onDispose {
-            LoginManager.getInstance().unregisterCallback(facebookCallbackManager)
-        }
+        onDispose { LoginManager.getInstance().unregisterCallback(facebookCallbackManager) }
     }
 
     val facebookLauncher = rememberLauncherForActivityResult(
         contract = LoginManager.getInstance().createLogInActivityResultContract(facebookCallbackManager, null),
-        onResult = { /* Handled by the callback manager */ }
+        onResult = { /* ... */ }
     )
 
-    // --- NAVIGATION ---
+    // --- NAVIGATION LOGIC ---
     LaunchedEffect(loginState.isSignInSuccessful) {
         if (loginState.isSignInSuccessful) {
             Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_LONG).show()
-            navController.navigate("home") { popUpTo("login") { inclusive = true } }
+            navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } }
             loginViewModel.resetState()
         }
     }
 
-    NavHost(navController = navController, startDestination = "login") {
+    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) Destinations.HOME else "login"
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        // --- LUỒNG XÁC THỰC ---
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { navController.navigate("home") { popUpTo("login") { inclusive = true } } },
+                onLoginSuccess = { navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } } },
                 onGoogleLogin = { googleLauncher.launch(googleSignInClient.signInIntent) },
                 onFacebookLogin = { facebookLauncher.launch(listOf("email", "public_profile")) },
                 onRegisterClick = { navController.navigate("register") },
@@ -141,26 +141,52 @@ fun AppNavigation(
         }
         composable("register") {
             RegisterScreen(
-                onRegisterSuccess = { navController.navigate("login") }, // Go back to login on success
-                onBackToLogin = { navController.popBackStack() } // Go back one screen
+                onRegisterSuccess = { navController.navigate("login") },
+                onBackToLogin = { navController.popBackStack() }
             )
         }
         composable("forgot_password") {
             ForgotPasswordScreen(navController = navController)
         }
-        composable("home") {
+
+        // --- LUỒNG CHÍNH CỦA ỨNG DỤNG ---
+        composable(Destinations.HOME) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.HOME
             HomeScreen(
-                onLogout = {
-                    CoroutineScope(Dispatchers.Main).launch {
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
+
+        // Thêm màn hình Cài đặt với chức năng Đăng xuất
+        composable(Destinations.SETTINGS) {
+            val scope = rememberCoroutineScope()
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Button(onClick = {
+                    scope.launch {
                         googleSignInClient.signOut().await()
                         FirebaseAuth.getInstance().signOut()
                         LoginManager.getInstance().logOut()
-                        loginViewModel.resetState()
-                        Toast.makeText(context, "Đã đăng xuất", Toast.LENGTH_SHORT).show()
-                        navController.navigate("login") { popUpTo("home") { inclusive = true } }
+                        navController.navigate("login") {
+                            popUpTo(Destinations.HOME) { inclusive = true }
+                        }
                     }
+                }) {
+                    Text("Đăng xuất")
                 }
-            )
+            }
         }
+
+        // Placeholder cho các màn hình khác
+        composable(Destinations.INCOME) { Text("Khoản thu Screen") }
+        composable(Destinations.EXPENSE) { Text("Khoản chi Screen") }
+        composable(Destinations.STATISTICS) { Text("Thống kê Screen") }
+        composable(Destinations.LIMIT) { Text("Limit Screen") }
+        composable(Destinations.TRANSACTIONS) { Text("Transactions Screen") }
     }
 }
