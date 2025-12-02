@@ -70,11 +70,12 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata")
     implementation("androidx.navigation:navigation-compose:2.7.5")
 
-    // --- Firebase --- (No changes needed)
+    // --- Firebase ---
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-firestore-ktx") // <--- THÊM DÒNG NÀY
 
-    // --- Authentication --- (No changes needed)
+    // --- Authentication ---
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.facebook.android:facebook-login:16.3.0")
 

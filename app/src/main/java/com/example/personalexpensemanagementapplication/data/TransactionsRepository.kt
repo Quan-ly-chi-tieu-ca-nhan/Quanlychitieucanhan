@@ -1,6 +1,6 @@
 package com.example.personalexpensemanagementapplication.data
 
-object TransactionsRepository {
+object  TransactionsRepository {
     var monthlyLimit = 25000000.0 // 25 triệu VNĐ
 
     val items = listOf(
