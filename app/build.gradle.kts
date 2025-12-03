@@ -73,7 +73,8 @@ dependencies {
     // --- Firebase ---
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.firebase:firebase-firestore-ktx") // <--- THÊM DÒNG NÀY
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-functions-ktx") // <--- THÊM THƯ VIỆN CLOUD FUNCTIONS
 
     // --- Authentication ---
     implementation("com.google.android.gms:play-services-auth:21.2.0")

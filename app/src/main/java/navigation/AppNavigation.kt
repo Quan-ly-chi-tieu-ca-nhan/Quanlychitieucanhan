@@ -38,6 +38,7 @@ import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -80,10 +81,22 @@ fun AppNavigation() {
     // Hàm lưu thông tin người dùng vào Firestore
     fun writeUserToFirestore(userData: UserData) {
         val userDocument = db.collection("users").document(userData.userId)
-        userDocument.set(userData).addOnSuccessListener {
-            Log.d("AppNavigation", "User data saved to Firestore.")
+
+        // Chỉ ghi dữ liệu nếu người dùng chưa tồn tại trong Firestore
+        userDocument.get().addOnSuccessListener { documentSnapshot ->
+            if (!documentSnapshot.exists()) {
+                // Thêm timestamp vào đối tượng userData trước khi lưu
+                val userDataWithTimestamp = userData.copy(createdAt = Timestamp.now())
+                userDocument.set(userDataWithTimestamp).addOnSuccessListener {
+                    Log.d("AppNavigation", "New user data saved to Firestore.")
+                }.addOnFailureListener { e ->
+                    Log.w("AppNavigation", "Error writing new user data to Firestore", e)
+                }
+            } else {
+                Log.d("AppNavigation", "User already exists in Firestore. No need to write.")
+            }
         }.addOnFailureListener { e ->
-            Log.w("AppNavigation", "Error writing user data to Firestore", e)
+            Log.e("AppNavigation", "Error checking user existence", e)
         }
     }
 
@@ -93,7 +106,7 @@ fun AppNavigation() {
             Log.d("AdminCheck", "Login success. Email: '${result.data.email}'. Checking for admin.")
             Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
             writeUserToFirestore(result.data)
-            
+
             if (adminEmails.contains(result.data.email)) {
                 Log.d("AdminCheck", "Admin detected. Navigating to user_management.")
                 navController.navigate("user_management") { popUpTo("login") { inclusive = true } }
@@ -166,7 +179,7 @@ fun AppNavigation() {
         contract = LoginManager.getInstance().createLogInActivityResultContract(facebookCallbackManager, null),
         onResult = { /* Handled by callback */ }
     )
-    
+
     val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
         if (adminEmails.contains(FirebaseAuth.getInstance().currentUser?.email)) "user_management" else Destinations.HOME
     } else {
@@ -190,7 +203,7 @@ fun AppNavigation() {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             HomeScreen(navController::navigate, navBackStackEntry?.destination?.route ?: Destinations.HOME)
         }
-        
+
         composable("user_management") {
             // TRUYỀN HÀM LOGOUT VÀO MÀN HÌNH ADMIN
             UserManagementScreen(navController = navController, onLogoutClick = logout)

@@ -1,5 +1,7 @@
 package com.example.personalexpensemanagementapplication
 
+import com.google.firebase.Timestamp
+
 data class SignInResult(
     val data: UserData? = null,
     val errorMessage: String? = null
@@ -11,5 +13,6 @@ data class UserData(
     val userId: String = "",
     val username: String? = null,
     val profilePictureUrl: String? = null,
-    val email: String? = null
+    val email: String? = null,
+    val createdAt: Timestamp? = null // Thêm trường thời gian tạo
 )

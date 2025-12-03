@@ -6,6 +6,7 @@ import com.example.personalexpensemanagementapplication.UserData
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObjects
+import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,7 @@ class UserManagementViewModel : ViewModel() {
     val users: StateFlow<List<UserData>> = _users.asStateFlow()
 
     private val db = Firebase.firestore
+    private val functions = Firebase.functions // Thêm tham chiếu đến Functions
     private val currentUser = Firebase.auth.currentUser
 
     init {
@@ -29,6 +31,7 @@ class UserManagementViewModel : ViewModel() {
             return
         }
 
+        // addSnapshotListener sẽ tự động cập nhật lại danh sách khi có ai đó bị xóa trong DB
         db.collection("users")
             .addSnapshotListener { snapshots, e ->
                 if (e != null) {
@@ -39,13 +42,31 @@ class UserManagementViewModel : ViewModel() {
 
                 if (snapshots != null) {
                     val allUsers = snapshots.toObjects<UserData>()
-                    // Lọc ra người dùng hiện tại (admin) khỏi danh sách
                     val filteredUsers = allUsers.filter { it.userId != currentUser.uid }
                     _users.value = filteredUsers
-                    Log.d("UserManagementVM", "Fetched ${allUsers.size} users, showing ${filteredUsers.size}.")
                 } else {
                     Log.d("UserManagementVM", "Current data: null")
                 }
+            }
+    }
+
+    /**
+     * Gọi đến Cloud Function 'deleteUserAccount' để xóa hoàn toàn tài khoản người dùng.
+     * @param userId ID của người dùng cần xóa.
+     */
+    fun deleteUser(userId: String) {
+        val data = hashMapOf("userId" to userId)
+
+        functions
+            .getHttpsCallable("deleteUserAccount") // Tên của Cloud Function đã triển khai
+            .call(data)
+            .addOnSuccessListener { result ->
+                // Cloud function đã chạy thành công. addSnapshotListener sẽ tự động cập nhật UI.
+                Log.d("UserManagementVM", "Cloud function 'deleteUserAccount' called successfully: ${result.data}")
+            }
+            .addOnFailureListener { e ->
+                // In ra lỗi nếu không gọi được Cloud Function
+                Log.e("UserManagementVM", "Error calling 'deleteUserAccount' cloud function", e)
             }
     }
 }
