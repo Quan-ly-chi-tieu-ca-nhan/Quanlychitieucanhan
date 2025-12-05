@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.personalexpensemanagementapplication.ui.screen
 
 import androidx.compose.foundation.Canvas
@@ -27,16 +29,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import java.util.Locale
 import kotlin.math.abs
 
-// Định nghĩa các màu sắc sử dụng trong ứng dụng
-val PrimaryGreen = Color(0xFF4CAF50)
-val PrimaryBlue = Color(0xFF2196F3)
-val LightBlueBg = Color(0xFFE3F2FD)
-val ExpenseRed = Color(0xFFF44336)
+// Remove fixed color vals and use MaterialTheme.colorScheme instead
+// Định nghĩa các màu sắc sử dụng trong ứng dụng (now derived from theme)
+val ExpenseRed = Color(0xFFF44336) // keep as accent for now
 val IncomeGreen = Color(0xFF4CAF50)
-val TextGray = Color(0xFF757575)
 
 // Simple currency formatter helper
 fun formatVnd(amount: Double): String {
@@ -55,9 +55,9 @@ fun stableColorForLabel(label: String): Color {
     val l = 0.55f
 
     // convert HSL to RGB
-    val c = (1f - abs(2f * l - 1f)) * s
+    val c = (1f - kotlin.math.abs(2f * l - 1f)) * s
     val hh = hue / 60f
-    val x = c * (1f - abs(hh % 2f - 1f))
+    val x = c * (1f - kotlin.math.abs(hh % 2f - 1f))
 
     val (r1, g1, b1) = when (hh.toInt()) {
         0 -> Triple(c, x, 0f)
@@ -80,8 +80,9 @@ fun stableColorForLabel(label: String): Color {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onNavigate: (String) -> Unit, currentRoute: String) {
+    val colors = MaterialTheme.colorScheme
     Scaffold(
-        topBar = { AppHeader() },
+        topBar = { AppTopBar(title = "Quản lý chi tiêu cá nhân")},
         bottomBar = { AppBottomNavigationBar(currentRoute = currentRoute, onNavigate = onNavigate) }
     ) { paddingValues ->
         LazyColumn(
@@ -99,79 +100,14 @@ fun HomeScreen(onNavigate: (String) -> Unit, currentRoute: String) {
     }
 }
 
-// =========================================================================
-// Header (Thanh tiêu đề trên cùng)
-// =========================================================================
-@Composable
-fun AppHeader() {
-    // Custom decorated header with blue background and rounded bottom corners
-    Surface(
-        color = PrimaryBlue,
-        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Center title - use weight to center it while keeping notification on right
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                DecorativeTitleLarge(title = "Quản lý chi tiêu cá nhân")
-            }
-
-            // Right: visible notification (aligned to end)
-            Row(
-                modifier = Modifier
-                    .clickable { /* Xử lý sự kiện thông báo */ }
-                    .padding(start = 8.dp)
-                    .wrapContentWidth(Alignment.End),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = "Thông báo",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "Notification",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    textDecoration = TextDecoration.Underline
-                )
-            }
-        }
-    }
-}
-
-// New title composable: single white title with a subtle rounded highlight behind it
-@Composable
-fun DecorativeTitleLarge(title: String) {
-    Surface(
-        color = Color.White.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-    ) {
-        Text(
-            text = title,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp
-        )
-    }
-}
 
 // =========================================================================
 // LimitAndBalanceCard (Thẻ hạn mức và số dư) - now dynamic and linked to statistics
 // =========================================================================
 @Composable
 fun LimitAndBalanceCard(onNavigate: (String) -> Unit) {
-    val dividerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+    val colors = MaterialTheme.colorScheme
+    val dividerColor = colors.onSurface.copy(alpha = 0.1f)
 
     // compute from TransactionsRepository (shared app-wide limit)
     val monthlyLimit = TransactionsRepository.monthlyLimit
@@ -181,9 +117,9 @@ fun LimitAndBalanceCard(onNavigate: (String) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onNavigate("Thống kê") }, // liên kết với phần thống kê khi bấm
+            .clickable { onNavigate(com.example.personalexpensemanagementapplication.Destinations.STATISTICS) }, // liên kết với phần thống kê khi bấm
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = LightBlueBg),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -222,12 +158,12 @@ fun LimitAndBalanceCard(onNavigate: (String) -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             // Optional small hint linking to statistics
             Text(
-                text = "Bấm vô để hiện qua trang Limit",
-                color = TextGray,
+                text = "Điều chỉnh hạn mức tháng",
+                color = colors.onSurface.copy(alpha = 0.6f),
                 fontSize = 12.sp,
                 modifier = Modifier
                     .padding(top = 6.dp)
-                    .clickable { onNavigate(Destinations.LIMIT) }
+                    .clickable { onNavigate(com.example.personalexpensemanagementapplication.Destinations.LIMIT) }
             )
         }
     }
@@ -266,10 +202,11 @@ fun BalanceRowItem(icon: String, label: String, value: String, modifier: Modifie
 // =========================================================================
 @Composable
 fun QuickStatisticsCard(onNavigate: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -318,7 +255,7 @@ fun QuickStatisticsCard(onNavigate: (String) -> Unit) {
                     } else {
                         StatisticsFilterStore.filter = StatsFilter(StatsType.EXPENSE, label)
                     }
-                    onNavigate("Thống kê")
+                    onNavigate(com.example.personalexpensemanagementapplication.Destinations.STATISTICS)
                 }
             )
 
@@ -332,7 +269,7 @@ fun QuickStatisticsCard(onNavigate: (String) -> Unit) {
                 onSegmentClick = { label ->
                     // Set income filter and navigate to the Income screen
                     StatisticsFilterStore.filter = StatsFilter(StatsType.INCOME, label)
-                    onNavigate("Khoản thu")
+                    onNavigate(com.example.personalexpensemanagementapplication.Destinations.INCOME)
                 },
                 collapseExtra = false // show all income categories so pie fills 100%
             )
@@ -340,12 +277,12 @@ fun QuickStatisticsCard(onNavigate: (String) -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Xem thêm",
-                color = PrimaryBlue,
+                color = colors.primary,
                 modifier = Modifier
                     .align(Alignment.End)
                     .clickable {
                         StatisticsFilterStore.filter = StatsFilter(StatsType.ALL, null)
-                        onNavigate("Thống kê")
+                        onNavigate(com.example.personalexpensemanagementapplication.Destinations.STATISTICS)
                     }
                     .padding(top = 8.dp),
                 fontWeight = FontWeight.Medium,
@@ -468,12 +405,12 @@ private fun LegendRow(color: Color, label: String, value: Double, percent: Doubl
             )
             Spacer(modifier = Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "${(percent * 100).toInt()}%", fontSize = 11.sp, color = TextGray)
+                Text(text = "${(percent * 100).toInt()}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = String.format(Locale.forLanguageTag("vi-VN"), "%,.0f VNĐ", value),
                     fontSize = 11.sp,
-                    color = TextGray
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
         }
@@ -485,10 +422,11 @@ private fun LegendRow(color: Color, label: String, value: Double, percent: Doubl
 // =========================================================================
 @Composable
 fun RecentTransactionsCard(onNavigate: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -514,11 +452,11 @@ fun RecentTransactionsCard(onNavigate: (String) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Xem tất cả", tint = PrimaryBlue)
+                Icon(Icons.Default.Add, contentDescription = "Xem tất cả", tint = colors.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Xem tất cả giao dịch",
-                    color = PrimaryBlue,
+                    color = colors.primary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -560,7 +498,7 @@ fun TransactionItem(icon: String, category: String, amount: Double, date: String
         )
         Text(
             text = date,
-            color = TextGray,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.width(70.dp),
             textAlign = TextAlign.End
@@ -582,6 +520,7 @@ data class BottomNavItem(
 
 @Composable
 fun AppBottomNavigationBar(currentRoute: String, onNavigate: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
     // Make bottom bar visually match the Statistics screen's bottom bar
     val items = listOf(
         BottomNavItem(Destinations.HOME, "Home", "🏠", Icons.Default.Home),
@@ -596,7 +535,7 @@ fun AppBottomNavigationBar(currentRoute: String, onNavigate: (String) -> Unit) {
 
     Surface(
         tonalElevation = 6.dp,
-        color = MaterialTheme.colorScheme.surface,
+        color = colors.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -620,20 +559,20 @@ fun AppBottomNavigationBar(currentRoute: String, onNavigate: (String) -> Unit) {
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) PrimaryBlue.copy(alpha = 0.12f) else Color.Transparent)
+                            .background(if (isSelected) colors.primary.copy(alpha = 0.12f) else Color.Transparent)
                     ) {
                         if (item.materialIcon != null) {
                             Icon(
                                 imageVector = item.materialIcon,
                                 contentDescription = item.displayLabel,
-                                tint = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.onSurface,
+                                tint = if (isSelected) colors.primary else colors.onSurface,
                                 modifier = Modifier.size(22.dp)
                             )
                         } else {
                             Text(
                                 text = item.unicodeIcon ?: "",
                                 fontSize = 20.sp,
-                                color = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.onSurface
+                                color = if (isSelected) colors.primary else colors.onSurface
                             )
                         }
                     }
@@ -643,7 +582,7 @@ fun AppBottomNavigationBar(currentRoute: String, onNavigate: (String) -> Unit) {
                     Text(
                         text = item.displayLabel,
                         fontSize = 11.sp,
-                        color = if (isSelected) PrimaryBlue else TextGray
+                        color = if (isSelected) colors.primary else colors.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }

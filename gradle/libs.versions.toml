@@ -1,5 +1,5 @@
 [versions]
-agp = "8.4.1"
+agp = "8.13.1"
 kotlin = "1.9.23"
 # Downgraded for compatibility with AGP 8.4.1
 coreKtx = "1.13.1"

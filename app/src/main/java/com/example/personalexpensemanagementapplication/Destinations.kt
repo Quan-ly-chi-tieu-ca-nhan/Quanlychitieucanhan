@@ -8,4 +8,8 @@ object Destinations {
     const val LIMIT = "limit"
     const val TRANSACTIONS = "transactions"
     const val SETTINGS = "settings"
+
+    // Admin routes
+    const val ADMIN_LOGIN = "admin_login"
+    const val ADMIN_USERS = "admin_users"
 }

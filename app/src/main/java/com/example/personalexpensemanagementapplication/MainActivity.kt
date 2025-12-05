@@ -79,7 +79,9 @@ class MainActivity : ComponentActivity() {
         // --- KẾT THÚC ĐOẠN CODE LẤY KEY HASH ---
 
         setContent {
-            PersonalExpenseManagementApplicationTheme {
+            // Read theme from ThemeStore
+            val darkTheme = com.example.personalexpensemanagementapplication.ui.theme.ThemeStore.currentTheme == com.example.personalexpensemanagementapplication.ui.theme.AppTheme.Dark
+            com.example.personalexpensemanagementapplication.ui.theme.PersonalExpenseManagementApplicationTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

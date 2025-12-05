@@ -2,7 +2,8 @@
     <string name="app_name" translatable="false">Personal Expense Management</string>
 
     <!-- Google Sign-In -->
-    <string name="web_client_id" translatable="false">118934518545-gjb8738rkq6pv0tg9novh0k3vgon68hg.apps.googleusercontent.com</string>
+    <string name="web_client_id" translatable="false">774095666702-jqj3bp0bgiu5r4bla35tcrosp7gnfde3.apps.googleusercontent.com</string>
+    <string name="default_web_client_id" translatable="false">774095666702-jqj3bp0bgiu5r4bla35tcrosp7gnfde3.apps.googleusercontent.com</string>
 
     <!-- Facebook Login -->
     <string name="facebook_app_id">1500863971216354</string>
