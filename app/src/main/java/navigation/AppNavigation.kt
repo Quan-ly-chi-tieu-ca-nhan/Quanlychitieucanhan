@@ -1,23 +1,21 @@
+@file:Suppress("DEPRECATION")
 package navigation
 
 import android.app.Activity
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -30,7 +28,7 @@ import com.example.personalexpensemanagementapplication.ui.screen.ForgotPassword
 import com.example.personalexpensemanagementapplication.ui.screen.HomeScreen
 import com.example.personalexpensemanagementapplication.ui.screen.LoginScreen
 import com.example.personalexpensemanagementapplication.ui.screen.RegisterScreen
-import com.example.personalexpensemanagementapplication.ui.screen.UserManagementScreen
+import com.example.personalexpensemanagementapplication.viewmodel.LoginViewModel
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
@@ -38,123 +36,137 @@ import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-// Danh sách email của Admin
-private val adminEmails = listOf("nhu0868210475@gmail.com", "minhnx0034@ut.edu.vn")
+// add theme imports
+import com.example.personalexpensemanagementapplication.ui.theme.ThemeStore
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    loginViewModel: LoginViewModel = viewModel()
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val db = Firebase.firestore
+    // Log nav route changes for debugging
+    val navBackStackEntryForLogging by navController.currentBackStackEntryAsState()
+    LaunchedEffect(navBackStackEntryForLogging) {
+        val route = navBackStackEntryForLogging?.destination?.route
+        Log.d("AppNavigation", "Current route changed -> $route")
+    }
+    val loginState by loginViewModel.state.collectAsState()
+    val coroutineScope = rememberCoroutineScope() // <--- KHAI BÁO SCOPE Ở ĐÂY
 
+    // detect emulator
+    val isEmulator = remember {
+        val fingerprint = Build.FINGERPRINT ?: ""
+        val model = Build.MODEL ?: ""
+        val product = Build.PRODUCT ?: ""
+        fingerprint.startsWith("generic") || fingerprint.startsWith("unknown") || model.contains("Emulator") || model.contains("Android SDK built for") || product == "google_sdk"
+    }
+
+    // --- AUTHENTICATION HANDLERS (GIỮ NGUYÊN) ---
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(R.string.web_client_id))
+            .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         GoogleSignIn.getClient(context, gso)
     }
 
-    // --- TẠO HÀM LOGOUT DÙNG CHUNG ---
-    val logout: () -> Unit = {
-        coroutineScope.launch {
-            googleSignInClient.signOut().await()
-            FirebaseAuth.getInstance().signOut()
-            LoginManager.getInstance().logOut()
-            navController.navigate("login") {
-                popUpTo(0) // Xóa toàn bộ backstack
-            }
-        }
-    }
-
-    // Hàm lưu thông tin người dùng vào Firestore
-    fun writeUserToFirestore(userData: UserData) {
-        val userDocument = db.collection("users").document(userData.userId)
-
-        // Chỉ ghi dữ liệu nếu người dùng chưa tồn tại trong Firestore
-        userDocument.get().addOnSuccessListener { documentSnapshot ->
-            if (!documentSnapshot.exists()) {
-                // Thêm timestamp vào đối tượng userData trước khi lưu
-                val userDataWithTimestamp = userData.copy(createdAt = Timestamp.now())
-                userDocument.set(userDataWithTimestamp).addOnSuccessListener {
-                    Log.d("AppNavigation", "New user data saved to Firestore.")
-                }.addOnFailureListener { e ->
-                    Log.w("AppNavigation", "Error writing new user data to Firestore", e)
-                }
-            } else {
-                Log.d("AppNavigation", "User already exists in Firestore. No need to write.")
-            }
-        }.addOnFailureListener { e ->
-            Log.e("AppNavigation", "Error checking user existence", e)
-        }
-    }
-
-    // Hàm xử lý kết quả đăng nhập chung - NGUỒN CHÂN LÝ DUY NHẤT
-    fun handleSignInResult(result: SignInResult) {
-        if (result.data != null && result.data.email != null) {
-            Log.d("AdminCheck", "Login success. Email: '${result.data.email}'. Checking for admin.")
-            Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
-            writeUserToFirestore(result.data)
-
-            if (adminEmails.contains(result.data.email)) {
-                Log.d("AdminCheck", "Admin detected. Navigating to user_management.")
-                navController.navigate("user_management") { popUpTo("login") { inclusive = true } }
-            } else {
-                Log.d("AdminCheck", "Regular user. Navigating to home.")
-                navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } }
-            }
-        } else {
-            val errorMessage = result.errorMessage ?: "Lỗi không xác định."
-            Log.e("AdminCheck", "Login failed: $errorMessage")
-            Toast.makeText(context, "Đăng nhập thất bại: $errorMessage", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    fun processFirebaseUser(user: FirebaseUser?): SignInResult {
-        return if (user != null) {
-            SignInResult(
-                data = UserData(
-                    userId = user.uid,
-                    username = user.displayName,
-                    profilePictureUrl = user.photoUrl?.toString(),
-                    email = user.email
-                ),
-                errorMessage = null
-            )
-        } else {
-            SignInResult(data = null, errorMessage = "User is null")
-        }
-    }
-
+    // Updated Google launcher: navigate directly on success and update ViewModel
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.let { intent ->
                 coroutineScope.launch {
+                    var accountEmail: String? = null
                     val signInResult = try {
                         val account = GoogleSignIn.getSignedInAccountFromIntent(intent).await()
-                        val credential = GoogleAuthProvider.getCredential(account.idToken!!, null)
-                        val user = FirebaseAuth.getInstance().signInWithCredential(credential).await().user
-                        processFirebaseUser(user)
+                        accountEmail = account?.email
+                        Log.d("AppNavigation", "GoogleSignIn returned account: email=${account?.email} id=${account?.id} idToken=${account?.idToken}")
+                        val idToken = account.idToken
+                        if (idToken == null) {
+                            Log.w("AppNavigation", "GoogleSignIn returned no idToken; possible misconfiguration in Firebase OAuth client or SHA fingerprint")
+                            throw Exception("Không lấy được idToken từ Google Sign-In. Kiểm tra config OAuth client / SHA-1 trong Firebase console.")
+                        }
+                        val credential = GoogleAuthProvider.getCredential(idToken, null)
+                        val firebaseResult = FirebaseAuth.getInstance().signInWithCredential(credential).await()
+                        var user = firebaseResult.user
+                        if (user == null) {
+                            user = FirebaseAuth.getInstance().currentUser
+                            Log.w("AppNavigation", "signInWithCredential returned null user; fallback to currentUser=${user}")
+                        }
+                        SignInResult(
+                            data = user?.let { UserData(userId = it.uid, username = it.displayName, profilePictureUrl = it.photoUrl?.toString()) },
+                            errorMessage = null
+                        )
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        SignInResult(data = null, errorMessage = e.message)
+                        Log.e("AppNavigation", "Google Sign-In failure", e)
+
+                        // attempt to extract the selected account's email even if idToken or sign-in failed
+                        try {
+                            val acct = GoogleSignIn.getSignedInAccountFromIntent(intent).await()
+                            accountEmail = acct?.email
+                        } catch (inner: Exception) {
+                            Log.w("AppNavigation", "Couldn't extract account email after failure: ${inner.message}")
+                        }
+
+                        SignInResult(data = null, errorMessage = e.message ?: "Lỗi không xác định khi đăng nhập Google")
                     }
-                    handleSignInResult(signInResult)
+
+                    // Update ViewModel with result
+                    loginViewModel.onSignInResult(signInResult)
+
+                    // If success, navigate directly
+                    if (signInResult.data != null) {
+                        Log.d("AppNavigation", "Google Sign-In success: user=${signInResult.data}")
+                        Toast.makeText(context, "Đăng nhập bằng Google thành công", Toast.LENGTH_SHORT).show()
+                        navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } }
+                        loginViewModel.resetState()
+                        return@launch
+                    }
+
+                    // If sign-in failed but we have an email, check if that email exists with password provider in Firebase
+                    if (accountEmail != null) {
+                        try {
+                            val fetch = FirebaseAuth.getInstance().fetchSignInMethodsForEmail(accountEmail).await()
+                            val methods = fetch.signInMethods ?: emptyList()
+                            Log.d("AppNavigation", "fetchSignInMethods for $accountEmail => ${methods}")
+
+                            if (methods.contains("password")) {
+                                // The user registered with email/password: prefill email on login screen and navigate there
+                                loginViewModel.setPrefilledEmail(accountEmail)
+                                Toast.makeText(context, "Tài khoản $accountEmail tồn tại; vui lòng nhập mật khẩu để đăng nhập", Toast.LENGTH_LONG).show()
+                                navController.navigate("login") { popUpTo("login") { inclusive = true } }
+                                return@launch
+                            } else if (methods.contains("google.com")) {
+                                // The account uses google provider but sign-in failed; inform user
+                                Toast.makeText(context, "Tài khoản Google tồn tại nhưng đăng nhập thất bại. Vui lòng thử lại.", Toast.LENGTH_LONG).show()
+                            } else {
+                                // Other providers or no providers
+                                Toast.makeText(context, "Tài khoản chưa được đăng ký bằng email liên kết. Vui lòng đăng ký hoặc thử phương thức khác.", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(context, "Không thể kiểm tra thông tin tài khoản: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Đăng nhập Google thất bại: ${signInResult.errorMessage}", Toast.LENGTH_LONG).show()
+                    }
                 }
+            } ?: run {
+                Log.w("AppNavigation", "Google Sign-In intent data was null")
+                Toast.makeText(context, "Không nhận được dữ liệu từ Google Sign-In", Toast.LENGTH_SHORT).show()
             }
+        } else {
+            Log.w("AppNavigation", "Google Sign-In result code not OK: ${result.resultCode}")
+            Toast.makeText(context, "Google Sign-In bị huỷ hoặc không thành công", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -164,12 +176,17 @@ fun AppNavigation() {
             override fun onSuccess(result: LoginResult) {
                 val credential = FacebookAuthProvider.getCredential(result.accessToken.token)
                 FirebaseAuth.getInstance().signInWithCredential(credential).addOnCompleteListener { task ->
-                    val signInResult = processFirebaseUser(task.result?.user)
-                    handleSignInResult(signInResult)
+                    val signInResult = if (task.isSuccessful) {
+                        val user = task.result?.user
+                        SignInResult(data = user?.let { UserData(it.uid, it.displayName, it.photoUrl?.toString()) }, errorMessage = null)
+                    } else {
+                        SignInResult(data = null, errorMessage = task.exception?.message)
+                    }
+                    loginViewModel.onSignInResult(signInResult)
                 }
             }
-            override fun onCancel() { Log.w("AppNavigation", "Facebook login cancelled.") }
-            override fun onError(error: FacebookException) { Log.e("AppNavigation", "Facebook login error.", error) }
+            override fun onCancel() { /* ... */ }
+            override fun onError(error: FacebookException) { /* ... */ }
         }
         LoginManager.getInstance().registerCallback(facebookCallbackManager, callback)
         onDispose { LoginManager.getInstance().unregisterCallback(facebookCallbackManager) }
@@ -177,49 +194,154 @@ fun AppNavigation() {
 
     val facebookLauncher = rememberLauncherForActivityResult(
         contract = LoginManager.getInstance().createLogInActivityResultContract(facebookCallbackManager, null),
-        onResult = { /* Handled by callback */ }
+        onResult = { /* ... */ }
     )
 
-    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
-        if (adminEmails.contains(FirebaseAuth.getInstance().currentUser?.email)) "user_management" else Destinations.HOME
-    } else {
-        "login"
+    // --- NAVIGATION LOGIC ---
+    // Keep LaunchedEffect for manual sign-in flows too (email/password), but for Google we will optionally bypass
+    LaunchedEffect(loginState.isSignInSuccessful) {
+        if (loginState.isSignInSuccessful) {
+            Toast.makeText(context, "Đăng nhập thành công!", Toast.LENGTH_LONG).show()
+            navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } }
+            loginViewModel.resetState()
+        }
     }
 
+    // Show sign-in errors as Toast to help user debug when social login fails
+    LaunchedEffect(loginState.signInError) {
+        loginState.signInError?.let { err ->
+            Toast.makeText(context, "Lỗi đăng nhập: $err", Toast.LENGTH_LONG).show()
+            // Optionally reset error after showing to avoid repeated toasts
+            loginViewModel.resetState()
+        }
+    }
+
+    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) Destinations.HOME else "login"
+
     NavHost(navController = navController, startDestination = startDestination) {
+        // --- LUỒNG XÁC THỰC ---
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { /* Logic được xử lý bởi handleSignInResult */ },
-                onGoogleLogin = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                onLoginSuccess = { navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } } },
+                onGoogleLogin = {
+                    // Bypass Google sign-in on emulator to make development/testing easier
+                    if (isEmulator) {
+                        Toast.makeText(context, "Emulator: bypassing Google Sign-In, navigating to Home", Toast.LENGTH_SHORT).show()
+                        navController.navigate(Destinations.HOME) { popUpTo("login") { inclusive = true } }
+                    } else {
+                        googleLauncher.launch(googleSignInClient.signInIntent)
+                    }
+                },
                 onFacebookLogin = { facebookLauncher.launch(listOf("email", "public_profile")) },
                 onRegisterClick = { navController.navigate("register") },
-                onForgotPasswordClick = { navController.navigate("forgot_password") }
+                onForgotPasswordClick = { navController.navigate("forgot_password") },
+                prefilledEmail = loginState.prefilledEmail,
+                onPrefilledConsumed = { loginViewModel.clearPrefilledEmail() },
+                onNavigateToAdmin = { navController.navigate(Destinations.ADMIN_LOGIN) } // Navigation to admin login
             )
         }
-        composable("register") { RegisterScreen({ navController.navigate("login") }, { navController.popBackStack() }) }
-        composable("forgot_password") { ForgotPasswordScreen(navController = navController) }
+        // Admin login route
+        composable("register") {
+            RegisterScreen(
+                onRegisterSuccess = { navController.navigate("login") },
+                onBackToLogin = { navController.popBackStack() }
+            )
+        }
+        composable("forgot_password") {
+            ForgotPasswordScreen(navController = navController)
+        }
 
+        // --- LUỒNG CHÍNH CỦA ỨNG DỤNG ---
         composable(Destinations.HOME) {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
-            HomeScreen(navController::navigate, navBackStackEntry?.destination?.route ?: Destinations.HOME)
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.HOME
+            HomeScreen(
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
         }
 
-        composable("user_management") {
-            // TRUYỀN HÀM LOGOUT VÀO MÀN HÌNH ADMIN
-            UserManagementScreen(navController = navController, onLogoutClick = logout)
-        }
-
+        // Thêm màn hình Cài đặt với chức năng Đăng xuất
         composable(Destinations.SETTINGS) {
-            Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                // SỬ DỤNG HÀM LOGOUT DÙNG CHUNG
-                Button(onClick = logout) { Text("Đăng xuất") }
-            }
+            val scope = rememberCoroutineScope()
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.SETTINGS
+
+            // Use the actual SettingScreen composable and wire theme store (use AppTheme/ThemeStore)
+            com.example.personalexpensemanagementapplication.ui.screen.SettingScreen(
+                currentTheme = ThemeStore.currentTheme,
+                onThemeChange = { ThemeStore.currentTheme = it },
+                onLogout = {
+                    scope.launch {
+                        try {
+                            googleSignInClient.signOut().await()
+                        } catch (_: Exception) {
+                            // ignore signOut failure
+                        }
+                        FirebaseAuth.getInstance().signOut()
+                        LoginManager.getInstance().logOut()
+
+                        navController.navigate("login") {
+                            popUpTo(Destinations.HOME) { inclusive = true }
+                        }
+                    }
+                },
+                onNavigate = { route -> navController.navigate(route) },
+                onBack = { navController.popBackStack() },
+                currentRoute = currentRoute
+            )
         }
 
-        composable(Destinations.INCOME) { Text("Khoản thu Screen") }
-        composable(Destinations.EXPENSE) { Text("Khoản chi Screen") }
-        composable(Destinations.STATISTICS) { Text("Thống kê Screen") }
-        composable(Destinations.LIMIT) { Text("Limit Screen") }
-        composable(Destinations.TRANSACTIONS) { Text("Transactions Screen") }
+        // Placeholder cho các màn hình khác
+        composable(Destinations.INCOME) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.INCOME
+            // TransactionScreen used for adding income
+            com.example.personalexpensemanagementapplication.ui.screen.TransactionScreen(
+                isExpense = false,
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
+
+        composable(Destinations.EXPENSE) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.EXPENSE
+            // TransactionScreen used for adding expense
+            com.example.personalexpensemanagementapplication.ui.screen.TransactionScreen(
+                isExpense = true,
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
+
+        composable(Destinations.STATISTICS) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.STATISTICS
+            com.example.personalexpensemanagementapplication.ui.screen.StatisticsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
+
+        composable(Destinations.LIMIT) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.LIMIT
+            com.example.personalexpensemanagementapplication.ui.screen.LimitScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
+
+        composable(Destinations.TRANSACTIONS) {
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route ?: Destinations.TRANSACTIONS
+            com.example.personalexpensemanagementapplication.ui.screen.TransactionListScreen(
+                onNavigate = { route -> navController.navigate(route) },
+                currentRoute = currentRoute
+            )
+        }
     }
 }
