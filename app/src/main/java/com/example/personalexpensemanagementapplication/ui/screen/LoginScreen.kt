@@ -35,7 +35,10 @@ fun LoginScreen(
     onGoogleLogin: () -> Unit,
     onFacebookLogin: () -> Unit,
     onRegisterClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit // Giữ nguyên, chỉ thay đổi nơi gọi
+    onForgotPasswordClick: () -> Unit,
+    prefilledEmail: String? = null, // optional prefilled email
+    onPrefilledConsumed: (() -> Unit)? = null, // callback to clear prefilled state in viewmodel after applied
+    onNavigateToAdmin: (() -> Unit)? = null // optional debug/admin navigation
 ) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
@@ -45,6 +48,15 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // If prefilledEmail is provided, populate the email field once and notify that it's consumed
+    LaunchedEffect(prefilledEmail) {
+        prefilledEmail?.let {
+            email = it
+            // Notify that we've consumed the prefilled email so ViewModel can clear it
+            onPrefilledConsumed?.invoke()
+        }
+    }
 
     Box(
         modifier = Modifier
