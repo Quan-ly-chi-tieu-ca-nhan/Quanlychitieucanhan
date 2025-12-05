@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,6 +29,7 @@ fun RegisterScreen(
 ) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
 
     // State variables
     var username by remember { mutableStateOf("") }
@@ -137,12 +139,40 @@ fun RegisterScreen(
                                 user?.updateProfile(profileUpdates)?.addOnCompleteListener { profileTask ->
                                     isLoading = false // Kết thúc loading
                                     if (profileTask.isSuccessful) {
-                                        Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
-                                        onRegisterSuccess()
+                                        // Save user to Firestore collection 'users' so admin can list them
+                                        user.uid.let { uid ->
+                                            val userDoc = mapOf(
+                                                "email" to email,
+                                                "name" to username
+                                            )
+                                            db.collection("users").document(uid).set(userDoc)
+                                                .addOnCompleteListener { dbTask ->
+                                                    if (!dbTask.isSuccessful) {
+                                                        Toast.makeText(context, "Đăng ký thành công nhưng không lưu được thông tin người dùng: ${dbTask.exception?.localizedMessage}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                                    onRegisterSuccess()
+                                                }
+                                        }
                                     } else {
-                                        // Vẫn thành công dù không lưu được tên
-                                        Toast.makeText(context, "Đăng ký thành công, nhưng không thể lưu tên đăng nhập.", Toast.LENGTH_LONG).show()
-                                        onRegisterSuccess()
+                                        // Vẫn thành công dù không lưu được tên; still write to Firestore using available uid
+                                        user?.uid?.let { uid ->
+                                            val userDoc = mapOf(
+                                                "email" to email,
+                                                "name" to username
+                                            )
+                                            db.collection("users").document(uid).set(userDoc)
+                                                .addOnCompleteListener { dbTask ->
+                                                    if (!dbTask.isSuccessful) {
+                                                        Toast.makeText(context, "Đăng ký thành công nhưng không lưu được thông tin người dùng: ${dbTask.exception?.localizedMessage}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                                    onRegisterSuccess()
+                                                }
+                                        } ?: run {
+                                            Toast.makeText(context, "Đăng ký thành công nhưng không lấy được UID để lưu dữ liệu.", Toast.LENGTH_LONG).show()
+                                            onRegisterSuccess()
+                                        }
                                     }
                                 }
                             } else {
